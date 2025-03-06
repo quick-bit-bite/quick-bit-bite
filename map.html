@@ -74,15 +74,22 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+    #gmapsUrl { margin-bottom: 0.2rem; }
     #useMyLocationBtn, .location-btn {
       background: #2c3e50;
       color: #fff;
       border: none;
       cursor: pointer;
       transition: background 0.3s;
+      margin-bottom: 0.5rem;
     }
     #useMyLocationBtn:hover, .location-btn:hover {
       background: #34495e;
+    }
+    .notice {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 0.5rem;
     }
     .tab-buttons {
       display: flex;
@@ -140,22 +147,14 @@
     <div id="sidebar">
       <h2>Submit Your Mood Video</h2>
       <form id="videoForm">
-        <!-- Video Type Selection -->
-        <label>Video Type:</label>
-        <input type="radio" name="vtype" value="mp4" id="typeMP4" checked>
-        <label for="typeMP4" style="display:inline;">Upload MP4</label>
-        <input type="radio" name="vtype" value="youtube" id="typeYT">
-        <label for="typeYT" style="display:inline;">YouTube Link</label>
+        <p class="notice">Fill in <strong>only one</strong> option below:</p>
+        <!-- MP4 File Upload -->
+        <label for="fileInput">MP4 Upload (max 500MB):</label>
+        <input type="file" id="fileInput" accept="video/mp4">
         
-        <!-- Conditional Inputs -->
-        <div id="mp4Input">
-          <label for="fileInput">Select MP4 file (max 500MB):</label>
-          <input type="file" id="fileInput" accept="video/mp4">
-        </div>
-        <div id="ytInput" style="display:none;">
-          <label for="videoURL">YouTube Video URL:</label>
-          <input type="url" id="videoURL" placeholder="https://www.youtube.com/watch?v=...">
-        </div>
+        <!-- YouTube Link Input -->
+        <label for="videoURL">YouTube Video URL:</label>
+        <input type="url" id="videoURL" placeholder="https://www.youtube.com/watch?v=...">
         
         <!-- Google Maps URL & Auto-Fill -->
         <label for="gmapsUrl">Google Maps URL (or use your location):</label>
@@ -219,33 +218,30 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
     
-    // Update input fields based on video type selection
-    document.getElementsByName('vtype').forEach(radio => {
-      radio.addEventListener('change', function() {
-        if (this.value === 'mp4') {
-          document.getElementById('mp4Input').style.display = 'block';
-          document.getElementById('ytInput').style.display = 'none';
-          document.getElementById('videoURL').required = false;
-          document.getElementById('fileInput').required = true;
-        } else {
-          document.getElementById('mp4Input').style.display = 'none';
-          document.getElementById('ytInput').style.display = 'block';
-          document.getElementById('videoURL').required = true;
-          document.getElementById('fileInput').required = false;
-        }
-      });
+    // Use Geolocation to autofill Google Maps URL field
+    document.getElementById('useMyLocationBtn').addEventListener('click', function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          var gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
+          document.getElementById('gmapsUrl').value = gmapsLink;
+        }, function(error) {
+          alert("Error retrieving location: " + error.message);
+        });
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
     });
     
-    // Improved coordinate parser: handles URLs with "@" or "/maps/place/"
+    // Enhanced parser to extract coordinates from different Google Maps URL formats.
     function parseGMapsURL(url) {
       let coords = null;
-      // Try the "@lat,lng" pattern
       let regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
       let match = url.match(regexAt);
       if (match) {
         coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
       } else {
-        // Try the "/maps/place/lat,lng" pattern
         let regexPlace = /\/maps\/place\/(-?\d+\.\d+),(-?\d+\.\d+)/;
         match = url.match(regexPlace);
         if (match) {
@@ -255,7 +251,6 @@
       return coords;
     }
     
-    // Haversine formula to calculate distance in km
     function distance(lat1, lng1, lat2, lng2) {
       var R = 6371;
       var dLat = (lat2 - lat1) * Math.PI / 180;
@@ -267,33 +262,16 @@
       return R * c;
     }
     
-    // Use Geolocation to autofill the Google Maps URL field
-    document.getElementById('useMyLocationBtn').addEventListener('click', function() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
-          // Construct a URL that works with our parser: using /maps/place/ format
-          var gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
-          document.getElementById('gmapsUrl').value = gmapsLink;
-        }, function(error) {
-          alert("Error retrieving location: " + error.message);
-        });
-      } else {
-        alert("Geolocation is not supported by your browser.");
-      }
-    });
-    
-    // Function to add a video marker
+    // Function to add a video marker.
     function addVideoMarker(video) {
       var marker = L.marker([video.lat, video.lng]).addTo(map);
       var embedHTML = '';
       if (video.type === 'youtube') {
-        var videoId = '';
+        let videoId = '';
         if (video.videoURL.includes("youtu.be")) {
           videoId = video.videoURL.split("youtu.be/")[1].split("?")[0];
         } else {
-          var urlObj = new URL(video.videoURL);
+          let urlObj = new URL(video.videoURL);
           videoId = urlObj.searchParams.get("v");
         }
         embedHTML = '<iframe width="300" height="169" src="https://www.youtube.com/embed/' + videoId + '" frameborder="0" allowfullscreen></iframe>';
@@ -306,10 +284,28 @@
       video.marker = marker;
     }
     
-    // Handle submission form
+    // Handle form submission.
     document.getElementById('videoForm').addEventListener('submit', function(event) {
       event.preventDefault();
-      var vtype = document.querySelector('input[name="vtype"]:checked').value;
+      var videoFile = document.getElementById('fileInput').files[0];
+      var ytLink = document.getElementById('videoURL').value;
+      if (videoFile && ytLink) {
+        alert("Please fill in only one option: either upload an MP4 file or provide a YouTube link.");
+        return;
+      }
+      if (!videoFile && !ytLink) {
+        alert("Please provide either an MP4 file or a YouTube link.");
+        return;
+      }
+      
+      var vtype = videoFile ? 'mp4' : 'youtube';
+      var videoURL = videoFile ? URL.createObjectURL(videoFile) : ytLink;
+      
+      if (vtype === 'mp4' && videoFile.size > 500 * 1024 * 1024) {
+        alert("File exceeds 500MB limit.");
+        return;
+      }
+      
       var gmapsUrl = document.getElementById('gmapsUrl').value;
       var tag = document.getElementById('tag').value.toLowerCase();
       var retentionDays = parseInt(document.getElementById('retention').value);
@@ -320,41 +316,14 @@
       }
       
       var expiration = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
-      
-      if (vtype === 'mp4') {
-        var fileInput = document.getElementById('fileInput');
-        if (fileInput.files.length === 0) {
-          alert("Please select an MP4 file.");
-          return;
-        }
-        var file = fileInput.files[0];
-        if (file.size > 500 * 1024 * 1024) {
-          alert("File exceeds 500MB limit.");
-          return;
-        }
-        var blobURL = URL.createObjectURL(file);
-        var submission = { type: 'mp4', videoURL: blobURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
-        videos.push(submission);
-        addVideoMarker(submission);
-        saveVideos();
-        this.reset();
-        refreshLists();
-      } else {
-        var videoURL = document.getElementById('videoURL').value;
-        if (!videoURL) {
-          alert("Please enter a YouTube link.");
-          return;
-        }
-        var submission = { type: 'youtube', videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
-        videos.push(submission);
-        addVideoMarker(submission);
-        saveVideos();
-        this.reset();
-        refreshLists();
-      }
+      var submission = { type: vtype, videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
+      videos.push(submission);
+      addVideoMarker(submission);
+      saveVideos();
+      this.reset();
+      refreshLists();
     });
     
-    // Center map on user location
     function centerOnUser() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
@@ -370,7 +339,6 @@
       }
     }
     
-    // Refresh lists of videos based on map center and current time
     function refreshLists() {
       var now = Date.now();
       var activeVideos = [];
@@ -437,7 +405,7 @@
       if(video.marker) { video.marker.openPopup(); }
     }
     
-    // Tab switching functionality
+    // Tab switching
     function setTab(tab) {
       currentTab = tab;
       document.getElementById('activeTab').classList.toggle('active', tab === 'active');
@@ -451,7 +419,6 @@
     window.onload = function() {
       centerOnUser();
       refreshLists();
-      // Re-add markers for active videos
       videos.forEach(function(video) {
         if (Date.now() < video.expiration) {
           addVideoMarker(video);
