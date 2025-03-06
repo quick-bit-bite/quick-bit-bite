@@ -228,4 +228,135 @@
         }
         var file = fileInput.files[0];
         if (file.size > 500 * 1024 * 1024) { // 500 MB limit
-          alert("File exceeds 50
+          alert("File exceeds 500MB limit.");
+          return;
+        }
+        var blobURL = URL.createObjectURL(file);
+        var submission = { type: 'mp4', videoURL: blobURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
+        videos.push(submission);
+        addVideoMarker(submission);
+        saveVideos();
+        this.reset();
+        refreshLists();
+      } else {
+        var videoURL = document.getElementById('videoURL').value;
+        if (!videoURL) {
+          alert("Please enter a YouTube link.");
+          return;
+        }
+        var submission = { type: 'youtube', videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
+        videos.push(submission);
+        addVideoMarker(submission);
+        saveVideos();
+        this.reset();
+        refreshLists();
+      }
+    });
+    
+    // Center map on user's location.
+    function centerOnUser() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          map.setView([lat, lng], 13);
+          refreshLists();
+        }, function(error) {
+          alert("Error retrieving location: " + error.message);
+        });
+      } else {
+        alert("Geolocation not supported by your browser.");
+      }
+    }
+    
+    // Refresh active and history lists.
+    function refreshLists() {
+      var now = Date.now();
+      var activeVideos = [];
+      var historyVideos = [];
+      videos.forEach(function(video) {
+        if (now < video.expiration) {
+          activeVideos.push(video);
+        } else {
+          historyVideos.push(video);
+        }
+      });
+      saveVideos();
+      if (currentTab === 'active') {
+        displayActiveVideos(activeVideos);
+      } else {
+        displayHistoryVideos(historyVideos);
+      }
+    }
+    
+    function displayActiveVideos(activeVideos) {
+      var center = map.getCenter();
+      var listDiv = document.getElementById('videoList');
+      listDiv.innerHTML = '';
+      var searchTerm = document.getElementById('searchBox').value.toLowerCase();
+      activeVideos.forEach(function(video) {
+        var d = distance(center.lat, center.lng, video.lat, video.lng);
+        if (d <= 10 && video.tag.includes(searchTerm)) {
+          var item = document.createElement('div');
+          item.className = 'video-item';
+          item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
+                           '<br><em>Expires:</em> ' + new Date(video.expiration).toLocaleDateString() +
+                           '<br><a href="#" onclick="zoomToVideo(' + videos.indexOf(video) + '); return false;">View on Map</a>';
+          listDiv.appendChild(item);
+        }
+      });
+    }
+    
+    function displayHistoryVideos(historyVideos) {
+      var listDiv = document.getElementById('videoList');
+      listDiv.innerHTML = '';
+      var groups = {};
+      historyVideos.forEach(function(video) {
+        var year = new Date(video.expiration).getFullYear();
+        if (!groups[year]) groups[year] = [];
+        groups[year].push(video);
+      });
+      for (var year in groups) {
+        var header = document.createElement('h4');
+        header.textContent = "History - " + year;
+        listDiv.appendChild(header);
+        groups[year].forEach(function(video) {
+          var item = document.createElement('div');
+          item.className = 'video-item';
+          item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
+                           '<br><em>Expired:</em> ' + new Date(video.expiration).toLocaleDateString();
+          listDiv.appendChild(item);
+        });
+      }
+    }
+    
+    function zoomToVideo(index) {
+      var video = videos[index];
+      map.setView([video.lat, video.lng], 15);
+      if(video.marker) { video.marker.openPopup(); }
+    }
+    
+    // Tab switching.
+    function setTab(tab) {
+      currentTab = tab;
+      document.getElementById('activeTab').classList.toggle('active', tab === 'active');
+      document.getElementById('historyTab').classList.toggle('active', tab === 'history');
+      refreshLists();
+    }
+    
+    document.getElementById('refreshBtn').addEventListener('click', refreshLists);
+    document.getElementById('searchBox').addEventListener('input', refreshLists);
+    
+    window.onload = function() {
+      centerOnUser();
+      refreshLists();
+      // Re-add markers for active videos
+      videos.forEach(function(video) {
+        if (Date.now() < video.expiration) {
+          addVideoMarker(video);
+        }
+      });
+    };
+  </script>
+</body>
+</html>
