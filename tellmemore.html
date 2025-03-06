@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Pulse – Tell Me More</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Basic styling for consistency -->
+  <style>
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #f9fafc;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header, footer {
+      background: #2c3e50;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    nav {
+      background: #34495e;
+      padding: 0.5rem;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      margin: 0 1rem;
+      font-weight: bold;
+    }
+    .container {
+      flex: 1;
+      padding: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    form {
+      margin-bottom: 1rem;
+    }
+    form label {
+      display: block;
+      margin: 0.5rem 0 0.2rem;
+      font-weight: bold;
+    }
+    form input, form button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    form button {
+      background: #2c3e50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    form button:hover {
+      background: #34495e;
+    }
+    #result {
+      padding: 1rem;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .loader {
+      text-align: center;
+      padding: 1rem;
+      font-size: 1rem;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Global Pulse – Tell Me More</h1>
+    <p>Learn about your city</p>
+  </header>
+  
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="map.html">Map</a>
+    <a href="profile.html">Profile</a>
+    <a href="tellme.html">Tell Me More</a>
+  </nav>
+  
+  <div class="container">
+    <h2>Find Information About Your City</h2>
+    <form id="cityForm">
+      <label for="cityInput">Enter City Name:</label>
+      <input type="text" id="cityInput" placeholder="e.g., New York City" required>
+      <button type="submit">Tell Me More</button>
+    </form>
+    <div id="result">
+      <div class="loader" id="loader" style="display:none;">Loading information...</div>
+      <div id="cityInfo"></div>
+    </div>
+  </div>
+  
+  <footer>
+    <p>&copy; 2025 Global Pulse. All rights reserved.</p>
+  </footer>
+  
+  <script>
+    // When the form is submitted, fetch a summary from Wikipedia
+    document.getElementById('cityForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      let city = document.getElementById('cityInput').value.trim();
+      if (!city) return;
+      // Show loader
+      document.getElementById('loader').style.display = 'block';
+      document.getElementById('cityInfo').innerHTML = '';
+      
+      // URL-encode city name and construct Wikipedia API URL
+      let apiURL = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(city);
+      fetch(apiURL)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("City not found or API error.");
+          }
+          return response.json();
+        })
+        .then(data => {
+          document.getElementById('loader').style.display = 'none';
+          let content = "";
+          if (data.extract) {
+            content += `<h3>${data.title}</h3>`;
+            if (data.thumbnail && data.thumbnail.source) {
+              content += `<img src="${data.thumbnail.source}" alt="${data.title}" style="max-width:100%; border-radius:8px;"><br>`;
+            }
+            content += `<p>${data.extract}</p>`;
+            if (data.content_urls && data.content_urls.desktop && data.content_urls.desktop.page) {
+              content += `<p>Read more on <a href="${data.content_urls.desktop.page}" target="_blank">Wikipedia</a>.</p>`;
+            }
+          } else {
+            content = "<p>Sorry, no information was found for that city.</p>";
+          }
+          document.getElementById('cityInfo').innerHTML = content;
+        })
+        .catch(error => {
+          document.getElementById('loader').style.display = 'none';
+          document.getElementById('cityInfo').innerHTML = `<p>Error: ${error.message}</p>`;
+        });
+    });
+  </script>
+</body>
+</html>
