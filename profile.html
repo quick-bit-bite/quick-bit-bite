@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Pulse – Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f9fafc; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+    header, footer { background: #2c3e50; color: #fff; padding: 1rem; text-align: center; }
+    nav { background: #34495e; padding: 0.5rem; text-align: center; }
+    nav a { color: #fff; text-decoration: none; margin: 0 1rem; font-weight: bold; }
+    .container { max-width: 600px; margin: 1rem auto; padding: 1rem; background: #fff; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .profile-info { text-align: center; }
+    .profile-info img { border-radius: 50%; width: 120px; height: 120px; }
+    .login-form, .signup-form { margin-bottom: 1rem; }
+    input, button { width: 100%; padding: 0.5rem; margin-top: 0.5rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #2c3e50; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #34495e; }
+  </style>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Global Pulse – Profile</h1>
+  </header>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="map.html">Map</a>
+    <a href="profile.html">Profile</a>
+  </nav>
+  
+  <div class="container" id="profileContainer">
+    <!-- Profile info will be shown here once logged in -->
+    <div class="profile-info" id="userProfile" style="display:none;">
+      <img id="userPhoto" src="" alt="Profile Photo">
+      <h2 id="userName"></h2>
+      <p id="userBio">Your bio goes here.</p>
+      <h3>Your Latest Videos</h3>
+      <div id="userVideos">
+        <!-- List of user video submissions (for demo, this may be pulled from localStorage) -->
+      </div>
+      <button onclick="logout()">Log Out</button>
+    </div>
+    
+    <!-- Login form -->
+    <div id="authSection">
+      <h2>Login / Sign Up</h2>
+      <div class="login-form">
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button onclick="login()">Login with Email</button>
+      </div>
+      <div class="signup-form">
+        <input type="email" id="signupEmail" placeholder="Email" required>
+        <input type="password" id="signupPassword" placeholder="Password" required>
+        <button onclick="signup()">Sign Up with Email</button>
+      </div>
+      <button onclick="googleLogin()">Login with Google</button>
+      <button onclick="alert('Instagram login coming soon!')">Login with Instagram</button>
+    </div>
+  </div>
+  
+  <footer>
+    <p>&copy; 2025 Global Pulse. All rights reserved.</p>
+  </footer>
+  
+  <script>
+    // Replace with your Firebase config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore(); // For storing additional profile data if needed.
+    
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        document.getElementById("authSection").style.display = "none";
+        document.getElementById("userProfile").style.display = "block";
+        document.getElementById("userName").textContent = user.displayName || user.email;
+        document.getElementById("userPhoto").src = user.photoURL || "https://via.placeholder.com/120";
+        // For demo: Load user videos from localStorage (filter by username)
+        let userVideos = videos.filter(v => v.username === (user.displayName || user.email));
+        let videoList = document.getElementById("userVideos");
+        videoList.innerHTML = userVideos.length ? userVideos.map(v => `<p><a href="${v.videoURL}" target="_blank">${v.videoURL}</a></p>`).join("") : "<p>No videos submitted yet.</p>";
+      } else {
+        document.getElementById("authSection").style.display = "block";
+        document.getElementById("userProfile").style.display = "none";
+      }
+    });
+    
+    // Email login
+    function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(error => alert("Login Error: " + error.message));
+    }
+    
+    // Email sign up
+    function signup() {
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          // Optionally update profile with default displayName
+          return userCredential.user.updateProfile({ displayName: email.split("@")[0] });
+        })
+        .catch(error => alert("Sign Up Error: " + error.message));
+    }
+    
+    // Google login
+    function googleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .catch(error => alert("Google Login Error: " + error.message));
+    }
+    
+    function logout() {
+      auth.signOut();
+    }
+    
+    // For demo purposes: load videos from localStorage
+    let videos = [];
+    if (localStorage.getItem("videoSubmissions")) {
+      videos = JSON.parse(localStorage.getItem("videoSubmissions"));
+    }
+  </script>
+</body>
+</html>
