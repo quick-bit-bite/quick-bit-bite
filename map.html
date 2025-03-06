@@ -7,6 +7,7 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
+    /* Basic styling for a modern look */
     body {
       margin: 0;
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -65,7 +66,7 @@
       margin-top: 0.5rem;
       font-weight: bold;
     }
-    form input, form select, form button {
+    form input, form select, form textarea, form button {
       width: 100%;
       padding: 0.5rem;
       margin-top: 0.2rem;
@@ -113,9 +114,11 @@
       border-bottom: 1px solid #ccc;
       padding-bottom: 0.5rem;
     }
-    .video-item iframe, .video-item video {
+    .video-item iframe,
+    .video-item video {
       width: 100%;
       max-width: 300px;
+      border-radius: 4px;
     }
     #searchBox {
       width: 100%;
@@ -125,34 +128,49 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+    .debug {
+      font-size: 0.8rem;
+      color: #900;
+      margin-top: 1rem;
+      border-top: 1px dashed #ccc;
+      padding-top: 0.5rem;
+    }
   </style>
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <!-- Firebase Authentication -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <!-- Optionally include Firebase Firestore if you expand this later -->
 </head>
 <body>
   <header>
     <h1>Global Pulse – Map</h1>
     <p>Discover mood videos near you</p>
+    <div id="userStatus" style="font-size:0.9rem;"></div>
   </header>
   
   <nav>
     <a href="index.html">Home</a>
     <a href="about.html">About</a>
     <a href="map.html">Map</a>
+    <a href="profile.html">Profile</a>
   </nav>
   
   <div id="container">
-    <!-- Map Container -->
     <div id="map"></div>
-    
-    <!-- Sidebar with Submission Form and Tabs -->
     <div id="sidebar">
       <h2>Submit Your Mood Video</h2>
+      <!-- Consent Popup (will trigger if not given already for guest) -->
+      <div id="consentPopup" style="display:none; background:#fff; border:1px solid #ccc; padding:1rem; margin-bottom:1rem;">
+        <p>Do you consent to publish your video publicly?</p>
+        <button onclick="setConsent(true)">Yes</button>
+        <button onclick="setConsent(false)">No</button>
+      </div>
       <form id="videoForm">
         <p class="notice">Fill in <strong>only one</strong> option below:</p>
-        <!-- MP4 File Upload -->
+        <!-- MP4 File Upload and YouTube Link -->
         <label for="fileInput">MP4 Upload (max 500MB):</label>
         <input type="file" id="fileInput" accept="video/mp4">
-        
-        <!-- YouTube Link Input -->
         <label for="videoURL">YouTube Video URL:</label>
         <input type="url" id="videoURL" placeholder="https://www.youtube.com/watch?v=...">
         
@@ -164,6 +182,10 @@
         <!-- Tag / Keywords -->
         <label for="tag">Tag / Keywords (e.g., Times Square):</label>
         <input type="text" id="tag" placeholder="Enter keywords" required>
+        
+        <!-- Message Field -->
+        <label for="message">Message (optional):</label>
+        <textarea id="message" placeholder="Add a message below your video"></textarea>
         
         <!-- Retention Period -->
         <label for="retention">Display Duration:</label>
@@ -189,9 +211,18 @@
       </div>
       
       <input type="text" id="searchBox" placeholder="Search by tag...">
-      <h3>Videos near center (within 10 km):</h3>
+      <h3>Videos near center (within selected range):</h3>
       <div id="videoList"></div>
       <button id="refreshBtn">Refresh List</button>
+      
+      <!-- Debug section to show video links -->
+      <div class="debug" id="debugInfo"></div>
+      
+      <!-- Range Slider for distance (in km) -->
+      <div class="controls">
+        <label for="rangeSlider">Filter Range: <span id="rangeValue">10</span> km</label><br>
+        <input type="range" id="rangeSlider" min="0.1" max="100" step="0.1" value="10">
+      </div>
     </div>
   </div>
   
@@ -201,31 +232,62 @@
   
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script>
-    let videos = [];
-    let currentTab = 'active';
+    // Firebase configuration – REPLACE with your own Firebase project config.
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     
-    if (localStorage.getItem('videoSubmissions')) {
-      videos = JSON.parse(localStorage.getItem('videoSubmissions'));
+    let currentUser = null;
+    auth.onAuthStateChanged(function(user) {
+      currentUser = user;
+      const statusDiv = document.getElementById("userStatus");
+      if (user) {
+        statusDiv.textContent = "Logged in as: " + (user.displayName || user.email);
+      } else {
+        statusDiv.textContent = "Guest Mode";
+      }
+    });
+    
+    let videos = [];
+    if (localStorage.getItem("videoSubmissions")) {
+      videos = JSON.parse(localStorage.getItem("videoSubmissions"));
     }
     function saveVideos() {
-      localStorage.setItem('videoSubmissions', JSON.stringify(videos));
+      localStorage.setItem("videoSubmissions", JSON.stringify(videos));
+      updateDebug();
+    }
+    function updateDebug() {
+      // For debugging: show list of video URLs (links)
+      let debugDiv = document.getElementById("debugInfo");
+      let links = videos.map(v => `<a href="${v.videoURL}" target="_blank">${v.videoURL}</a>`).join("<br>");
+      debugDiv.innerHTML = "<strong>Saved Videos:</strong><br>" + links;
     }
     
-    var map = L.map('map').setView([20, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    var map = L.map("map").setView([20, 0], 2);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      attribution: "© OpenStreetMap"
     }).addTo(map);
     
-    // Use Geolocation to autofill Google Maps URL field
-    document.getElementById('useMyLocationBtn').addEventListener('click', function() {
+    // Use Geolocation to autofill the Google Maps URL field
+    document.getElementById("useMyLocationBtn").addEventListener("click", function() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
-          var gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
-          document.getElementById('gmapsUrl').value = gmapsLink;
+          let lat = position.coords.latitude;
+          let lng = position.coords.longitude;
+          let gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
+          document.getElementById("gmapsUrl").value = gmapsLink;
         }, function(error) {
           alert("Error retrieving location: " + error.message);
         });
@@ -234,7 +296,7 @@
       }
     });
     
-    // Enhanced parser to extract coordinates from different Google Maps URL formats.
+    // Enhanced parser: supports both "@lat,lng" and "/maps/place/lat,lng" formats.
     function parseGMapsURL(url) {
       let coords = null;
       let regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
@@ -252,43 +314,67 @@
     }
     
     function distance(lat1, lng1, lat2, lng2) {
-      var R = 6371;
-      var dLat = (lat2 - lat1) * Math.PI / 180;
-      var dLng = (lng2 - lng1) * Math.PI / 180;
-      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
       return R * c;
     }
     
-    // Function to add a video marker.
     function addVideoMarker(video) {
-      var marker = L.marker([video.lat, video.lng]).addTo(map);
-      var embedHTML = '';
-      if (video.type === 'youtube') {
-        let videoId = '';
+      let marker = L.marker([video.lat, video.lng]).addTo(map);
+      let embedHTML = "";
+      if (video.type === "youtube") {
+        let videoId = "";
         if (video.videoURL.includes("youtu.be")) {
           videoId = video.videoURL.split("youtu.be/")[1].split("?")[0];
         } else {
           let urlObj = new URL(video.videoURL);
           videoId = urlObj.searchParams.get("v");
         }
-        embedHTML = '<iframe width="300" height="169" src="https://www.youtube.com/embed/' + videoId + '" frameborder="0" allowfullscreen></iframe>';
+        embedHTML = `<iframe width="300" height="169" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
       } else {
-        embedHTML = '<video width="300" controls><source src="' + video.videoURL + '" type="video/mp4">Your browser does not support the video tag.</video>';
+        embedHTML = `<video width="300" controls><source src="${video.videoURL}" type="video/mp4">Your browser does not support the video tag.</video>`;
       }
-      marker.bindPopup('<strong>Tag:</strong> ' + video.tag +
-                         '<br><em>Expires on:</em> ' + new Date(video.expiration).toLocaleDateString() +
-                         '<br>' + embedHTML);
+      marker.bindPopup(
+        `<strong>Tag:</strong> ${video.tag}<br>
+         <strong>Message:</strong> ${video.message || ""}<br>
+         <strong>Expires on:</strong> ${new Date(video.expiration).toLocaleDateString()}<br>
+         ${embedHTML}`
+      );
       video.marker = marker;
     }
     
-    // Handle form submission.
-    document.getElementById('videoForm').addEventListener('submit', function(event) {
+    // Consent handling: In guest mode, ask every time; in logged-in mode, check saved consent flag in localStorage keyed by user UID.
+    function checkConsent(callback) {
+      if (currentUser) {
+        // For logged-in users, check if consent is stored (true/false) for their UID.
+        let consent = localStorage.getItem("consent_" + currentUser.uid);
+        if (consent === null) {
+          // Ask once and store the response.
+          if (confirm("Do you consent to publish your video publicly?")) {
+            localStorage.setItem("consent_" + currentUser.uid, "true");
+            callback(true);
+          } else {
+            callback(false);
+          }
+        } else {
+          callback(consent === "true");
+        }
+      } else {
+        // For guests, always ask.
+        callback(confirm("Do you consent to publish your video publicly?"));
+      }
+    }
+    
+    // Handle submission of video form.
+    document.getElementById("videoForm").addEventListener("submit", function(event) {
       event.preventDefault();
-      var videoFile = document.getElementById('fileInput').files[0];
-      var ytLink = document.getElementById('videoURL').value;
+      let videoFile = document.getElementById("fileInput").files[0];
+      let ytLink = document.getElementById("videoURL").value;
       if (videoFile && ytLink) {
         alert("Please fill in only one option: either upload an MP4 file or provide a YouTube link.");
         return;
@@ -297,38 +383,52 @@
         alert("Please provide either an MP4 file or a YouTube link.");
         return;
       }
-      
-      var vtype = videoFile ? 'mp4' : 'youtube';
-      var videoURL = videoFile ? URL.createObjectURL(videoFile) : ytLink;
-      
-      if (vtype === 'mp4' && videoFile.size > 500 * 1024 * 1024) {
+      let vtype = videoFile ? "mp4" : "youtube";
+      let videoURL = videoFile ? URL.createObjectURL(videoFile) : ytLink;
+      if (vtype === "mp4" && videoFile.size > 500 * 1024 * 1024) {
         alert("File exceeds 500MB limit.");
         return;
       }
-      
-      var gmapsUrl = document.getElementById('gmapsUrl').value;
-      var tag = document.getElementById('tag').value.toLowerCase();
-      var retentionDays = parseInt(document.getElementById('retention').value);
-      var coords = parseGMapsURL(gmapsUrl);
+      let gmapsUrl = document.getElementById("gmapsUrl").value;
+      let tag = document.getElementById("tag").value.toLowerCase();
+      let message = document.getElementById("message").value;
+      let retentionDays = parseInt(document.getElementById("retention").value);
+      let coords = parseGMapsURL(gmapsUrl);
       if (!coords) {
         alert("Could not extract coordinates from the provided Google Maps URL. Please check the format.");
         return;
       }
+      let expiration = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
       
-      var expiration = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
-      var submission = { type: vtype, videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
-      videos.push(submission);
-      addVideoMarker(submission);
-      saveVideos();
-      this.reset();
-      refreshLists();
+      checkConsent(function(consentGiven) {
+        if (!consentGiven) {
+          alert("Consent not given. Video submission cancelled.");
+          return;
+        }
+        let submission = {
+          type: vtype,
+          videoURL: videoURL,
+          lat: coords.lat,
+          lng: coords.lng,
+          tag: tag,
+          message: message,
+          expiration: expiration,
+          timestamp: Date.now(),
+          username: currentUser ? (currentUser.displayName || currentUser.email) : "Guest"
+        };
+        videos.push(submission);
+        addVideoMarker(submission);
+        saveVideos();
+        document.getElementById("videoForm").reset();
+        refreshLists();
+      });
     });
     
     function centerOnUser() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
+          let lat = position.coords.latitude;
+          let lng = position.coords.longitude;
           map.setView([lat, lng], 13);
           refreshLists();
         }, function(error) {
@@ -340,9 +440,9 @@
     }
     
     function refreshLists() {
-      var now = Date.now();
-      var activeVideos = [];
-      var historyVideos = [];
+      let now = Date.now();
+      let activeVideos = [];
+      let historyVideos = [];
       videos.forEach(function(video) {
         if (now < video.expiration) {
           activeVideos.push(video);
@@ -350,8 +450,7 @@
           historyVideos.push(video);
         }
       });
-      saveVideos();
-      if (currentTab === 'active') {
+      if (currentTab === "active") {
         displayActiveVideos(activeVideos);
       } else {
         displayHistoryVideos(historyVideos);
@@ -359,62 +458,71 @@
     }
     
     function displayActiveVideos(activeVideos) {
-      var center = map.getCenter();
-      var listDiv = document.getElementById('videoList');
-      listDiv.innerHTML = '';
-      var searchTerm = document.getElementById('searchBox').value.toLowerCase();
+      let center = map.getCenter();
+      let listDiv = document.getElementById("videoList");
+      listDiv.innerHTML = "";
+      let searchTerm = document.getElementById("searchBox").value.toLowerCase();
       activeVideos.forEach(function(video) {
-        var d = distance(center.lat, center.lng, video.lat, video.lng);
-        if (d <= 10 && video.tag.includes(searchTerm)) {
-          var item = document.createElement('div');
-          item.className = 'video-item';
-          item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
-                           '<br><em>Expires:</em> ' + new Date(video.expiration).toLocaleDateString() +
-                           '<br><a href="#" onclick="zoomToVideo(' + videos.indexOf(video) + '); return false;">View on Map</a>';
+        let d = distance(center.lat, center.lng, video.lat, video.lng);
+        if (d <= parseFloat(document.getElementById("rangeSlider").value) && video.tag.includes(searchTerm)) {
+          let item = document.createElement("div");
+          item.className = "video-item";
+          item.innerHTML = `<h3>${video.username}</h3>
+            <p><strong>Location:</strong> ${video.lat.toFixed(4)}, ${video.lng.toFixed(4)}</p>
+            <p><strong>Tag:</strong> ${video.tag}</p>
+            <p><strong>Message:</strong> ${video.message || ""}</p>
+            <p><small>Expires on: ${new Date(video.expiration).toLocaleDateString()}</small></p>
+            <a href="#" onclick="zoomToVideo(${videos.indexOf(video)}); return false;">View on Map</a>`;
           listDiv.appendChild(item);
         }
       });
     }
     
     function displayHistoryVideos(historyVideos) {
-      var listDiv = document.getElementById('videoList');
-      listDiv.innerHTML = '';
-      var groups = {};
+      let listDiv = document.getElementById("videoList");
+      listDiv.innerHTML = "";
+      let groups = {};
       historyVideos.forEach(function(video) {
-        var year = new Date(video.expiration).getFullYear();
+        let year = new Date(video.expiration).getFullYear();
         if (!groups[year]) groups[year] = [];
         groups[year].push(video);
       });
-      for (var year in groups) {
-        var header = document.createElement('h4');
+      for (let year in groups) {
+        let header = document.createElement("h4");
         header.textContent = "History - " + year;
         listDiv.appendChild(header);
         groups[year].forEach(function(video) {
-          var item = document.createElement('div');
-          item.className = 'video-item';
-          item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
-                           '<br><em>Expired:</em> ' + new Date(video.expiration).toLocaleDateString();
+          let item = document.createElement("div");
+          item.className = "video-item";
+          item.innerHTML = `<p><strong>Tag:</strong> ${video.tag}</p>
+            <p><strong>Expired on:</strong> ${new Date(video.expiration).toLocaleDateString()}</p>`;
           listDiv.appendChild(item);
         });
       }
     }
     
     function zoomToVideo(index) {
-      var video = videos[index];
+      let video = videos[index];
       map.setView([video.lat, video.lng], 15);
-      if(video.marker) { video.marker.openPopup(); }
+      if (video.marker) {
+        video.marker.openPopup();
+      }
     }
     
     // Tab switching
     function setTab(tab) {
       currentTab = tab;
-      document.getElementById('activeTab').classList.toggle('active', tab === 'active');
-      document.getElementById('historyTab').classList.toggle('active', tab === 'history');
+      document.getElementById("activeTab").classList.toggle("active", tab === "active");
+      document.getElementById("historyTab").classList.toggle("active", tab === "history");
       refreshLists();
     }
     
-    document.getElementById('refreshBtn').addEventListener('click', refreshLists);
-    document.getElementById('searchBox').addEventListener('input', refreshLists);
+    document.getElementById("refreshBtn").addEventListener("click", refreshLists);
+    document.getElementById("searchBox").addEventListener("input", refreshLists);
+    document.getElementById("rangeSlider").addEventListener("input", function() {
+      document.getElementById("rangeValue").textContent = this.value;
+      refreshLists();
+    });
     
     window.onload = function() {
       centerOnUser();
@@ -424,6 +532,7 @@
           addVideoMarker(video);
         }
       });
+      updateDebug();
     };
   </script>
 </body>
