@@ -1,1 +1,135 @@
-“Initial – Puls Globe”
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Pulse – Worldwide Video Mood Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+eUpt/H5d+g7OL7aI1sBgyTp2xG9UrUqMYKjG+9Ys=" crossorigin=""/>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+    header {
+      background: #2c3e50;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    #map {
+      height: 60vh;
+    }
+    #form-container {
+      padding: 1rem;
+      background: #fff;
+    }
+    #form-container h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    form {
+      max-width: 600px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin: 0.5rem 0 0.2rem;
+    }
+    input, button {
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: #2c3e50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #34495e;
+    }
+    footer {
+      text-align: center;
+      padding: 1rem;
+      background: #2c3e50;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Global Pulse</h1>
+    <p>The Worldwide Video Mood Map</p>
+  </header>
+
+  <!-- Interactive map container -->
+  <div id="map"></div>
+
+  <!-- Video submission form -->
+  <div id="form-container">
+    <h2>Share Your Daily Mood Video</h2>
+    <form id="videoForm">
+      <label for="videoURL">Video URL (MP4 or YouTube link):</label>
+      <input type="url" id="videoURL" placeholder="https://example.com/yourvideo.mp4" required>
+      <label for="latitude">Latitude:</label>
+      <input type="number" id="latitude" step="any" placeholder="e.g., 40.7128" required>
+      <label for="longitude">Longitude:</label>
+      <input type="number" id="longitude" step="any" placeholder="e.g., -74.0060" required>
+      <button type="submit">Submit Video</button>
+    </form>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Global Pulse. All rights reserved.</p>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o3pCrH8aP3sMPC7SQ7+UUB/XYVZQpfs5zDFfZ+3ZL2c=" crossorigin=""></script>
+  <script>
+    // Initialize the map (centered at lat 20, lng 0 with zoom level 2)
+    var map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Function to add a video marker on the map
+    function addVideoMarker(lat, lng, videoURL) {
+      var marker = L.marker([lat, lng]).addTo(map);
+      var videoEmbed = '';
+      if (videoURL.includes("youtube.com") || videoURL.includes("youtu.be")) {
+        // For YouTube links, extract video ID and create iframe embed
+        var videoId = '';
+        if (videoURL.includes("youtu.be")) {
+          videoId = videoURL.split("youtu.be/")[1];
+        } else {
+          var urlObj = new URL(videoURL);
+          videoId = urlObj.searchParams.get("v");
+        }
+        videoEmbed = '<iframe width="300" height="169" src="https://www.youtube.com/embed/' + videoId + '" frameborder="0" allowfullscreen></iframe>';
+      } else {
+        // For MP4 or other direct video links, use HTML5 video element
+        videoEmbed = '<video width="300" controls><source src="' + videoURL + '" type="video/mp4">Your browser does not support the video tag.</video>';
+      }
+      marker.bindPopup(videoEmbed);
+    }
+
+    // Form submission handler
+    document.getElementById('videoForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      var videoURL = document.getElementById('videoURL').value;
+      var lat = parseFloat(document.getElementById('latitude').value);
+      var lng = parseFloat(document.getElementById('longitude').value);
+      addVideoMarker(lat, lng, videoURL);
+      this.reset();
+    });
+  </script>
+</body>
+</html>
