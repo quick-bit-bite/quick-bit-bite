@@ -4,28 +4,120 @@
   <meta charset="UTF-8">
   <title>Global Pulse – Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Basic CSS styling -->
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
-    body { margin: 0; font-family: sans-serif; background: #f0f2f5; color: #333; display: flex; flex-direction: column; }
-    header, footer { background: #2c3e50; color: #fff; padding: 1rem; text-align: center; }
-    nav { background: #34495e; padding: 0.5rem; text-align: center; }
-    nav a { color: #fff; text-decoration: none; margin: 0 1rem; font-weight: bold; }
-    #container { flex: 1; display: flex; flex-direction: row; }
-    #map { flex: 2; height: 80vh; }
-    #sidebar { flex: 1; padding: 1rem; background: #fff; overflow-y: auto; border-left: 1px solid #ddd; }
-    form { margin-bottom: 1rem; }
-    form label { display: block; margin-top: 0.5rem; }
-    form input, form select, form button { width: 100%; padding: 0.5rem; margin-top: 0.2rem; margin-bottom: 0.5rem; box-sizing: border-box; }
-    #gmapsUrl { margin-bottom: 0.2rem; }
-    #useMyLocationBtn { background: #2c3e50; color: #fff; padding: 0.4rem; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
-    #useMyLocationBtn:hover { background: #34495e; }
-    .tab-buttons { display: flex; justify-content: space-around; margin-bottom: 1rem; }
-    .tab-buttons button { flex: 1; padding: 0.5rem; border: none; background: #ddd; cursor: pointer; }
-    .tab-buttons button.active { background: #2c3e50; color: #fff; }
-    .video-item { margin-bottom: 1rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
-    .video-item iframe, .video-item video { width: 100%; max-width: 300px; }
-    .location-btn { background: #2c3e50; color: #fff; padding: 0.5rem; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
-    .location-btn:hover { background: #34495e; }
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #f9fafc;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header, footer {
+      background: #2c3e50;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    nav {
+      background: #34495e;
+      padding: 0.5rem;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      margin: 0 1rem;
+      font-weight: bold;
+    }
+    #container {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      margin: 1rem;
+      gap: 1rem;
+    }
+    #map {
+      flex: 2;
+      height: 80vh;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    #sidebar {
+      flex: 1;
+      padding: 1rem;
+      background: #fff;
+      overflow-y: auto;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    form {
+      margin-bottom: 1rem;
+    }
+    form label {
+      display: block;
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
+    form input, form select, form button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.2rem;
+      margin-bottom: 0.5rem;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #useMyLocationBtn, .location-btn {
+      background: #2c3e50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #useMyLocationBtn:hover, .location-btn:hover {
+      background: #34495e;
+    }
+    .tab-buttons {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 1rem;
+    }
+    .tab-buttons button {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      background: #ddd;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .tab-buttons button.active {
+      background: #2c3e50;
+      color: #fff;
+    }
+    .video-item {
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 0.5rem;
+    }
+    .video-item iframe, .video-item video {
+      width: 100%;
+      max-width: 300px;
+    }
+    #searchBox {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -41,10 +133,10 @@
   </nav>
   
   <div id="container">
-    <!-- Map container -->
+    <!-- Map Container -->
     <div id="map"></div>
     
-    <!-- Sidebar for submission form and video list -->
+    <!-- Sidebar with Submission Form and Tabs -->
     <div id="sidebar">
       <h2>Submit Your Mood Video</h2>
       <form id="videoForm">
@@ -65,9 +157,9 @@
           <input type="url" id="videoURL" placeholder="https://www.youtube.com/watch?v=...">
         </div>
         
-        <!-- Google Maps URL Input & Use My Location -->
-        <label for="gmapsUrl">Google Maps URL (or auto-fill with your location):</label>
-        <input type="url" id="gmapsUrl" placeholder="https://www.google.com/maps/place/..." required>
+        <!-- Google Maps URL & Auto-Fill -->
+        <label for="gmapsUrl">Google Maps URL (or use your location):</label>
+        <input type="url" id="gmapsUrl" placeholder="https://www.google.com/maps/place/lat,lng" required>
         <button type="button" id="useMyLocationBtn">Use My Current Location</button>
         
         <!-- Tag / Keywords -->
@@ -108,17 +200,12 @@
     <p>&copy; 2025 Global Pulse. All rights reserved.</p>
   </footer>
   
-  <!-- Google Maps API script (replace YOUR_API_KEY with your actual key) -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap"></script>
-  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    // Global data array for video submissions
     let videos = [];
-    let currentTab = 'active'; // 'active' or 'history'
-    let map;
-    let infoWindow;
+    let currentTab = 'active';
     
-    // Load submissions from localStorage if available
     if (localStorage.getItem('videoSubmissions')) {
       videos = JSON.parse(localStorage.getItem('videoSubmissions'));
     }
@@ -126,47 +213,14 @@
       localStorage.setItem('videoSubmissions', JSON.stringify(videos));
     }
     
-    // Initialize Google Map
-    function initMap() {
-      // Default center if geolocation fails
-      let defaultCenter = { lat: 20, lng: 0 };
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: defaultCenter,
-        zoom: 2,
-      });
-      infoWindow = new google.maps.InfoWindow();
-      centerOnUser();
-      refreshLists();
-      
-      // Re-add markers from saved submissions (active only)
-      videos.forEach(video => {
-        if (Date.now() < video.expiration) {
-          addVideoMarker(video);
-        }
-      });
-    }
+    var map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
     
-    // Use navigator.geolocation to center map on user's location
-    function centerOnUser() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-          let userPos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-          map.setCenter(userPos);
-          map.setZoom(13);
-          refreshLists();
-        }, function(error) {
-          alert("Error retrieving location: " + error.message);
-        });
-      } else {
-        alert("Geolocation not supported by your browser.");
-      }
-    }
-    
-    // Update form display based on selected video type
-    Array.from(document.getElementsByName('vtype')).forEach(radio => {
+    // Update input fields based on video type selection
+    document.getElementsByName('vtype').forEach(radio => {
       radio.addEventListener('change', function() {
         if (this.value === 'mp4') {
           document.getElementById('mp4Input').style.display = 'block';
@@ -182,109 +236,116 @@
       });
     });
     
-    // Fill the Google Maps URL input automatically using current location
+    // Improved coordinate parser: handles URLs with "@" or "/maps/place/"
+    function parseGMapsURL(url) {
+      let coords = null;
+      // Try the "@lat,lng" pattern
+      let regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+      let match = url.match(regexAt);
+      if (match) {
+        coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+      } else {
+        // Try the "/maps/place/lat,lng" pattern
+        let regexPlace = /\/maps\/place\/(-?\d+\.\d+),(-?\d+\.\d+)/;
+        match = url.match(regexPlace);
+        if (match) {
+          coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+        }
+      }
+      return coords;
+    }
+    
+    // Haversine formula to calculate distance in km
+    function distance(lat1, lng1, lat2, lng2) {
+      var R = 6371;
+      var dLat = (lat2 - lat1) * Math.PI / 180;
+      var dLng = (lng2 - lng1) * Math.PI / 180;
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+    
+    // Use Geolocation to autofill the Google Maps URL field
     document.getElementById('useMyLocationBtn').addEventListener('click', function() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
-          let lat = position.coords.latitude;
-          let lng = position.coords.longitude;
-          let gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          // Construct a URL that works with our parser: using /maps/place/ format
+          var gmapsLink = "https://www.google.com/maps/place/" + lat + "," + lng;
           document.getElementById('gmapsUrl').value = gmapsLink;
         }, function(error) {
           alert("Error retrieving location: " + error.message);
         });
       } else {
-        alert("Geolocation not supported by your browser.");
+        alert("Geolocation is not supported by your browser.");
       }
     });
     
-    // Parse coordinates from a Google Maps URL (pattern: /@lat,lng,)
-    function parseGMapsURL(url) {
-      let regex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-      let match = url.match(regex);
-      if (match) {
-        return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-      }
-      return null;
-    }
-    
-    // Haversine formula to calculate distance (in km)
-    function distance(lat1, lng1, lat2, lng2) {
-      let R = 6371;
-      let dLat = (lat2 - lat1) * Math.PI / 180;
-      let dLng = (lng2 - lng1) * Math.PI / 180;
-      let a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2;
-      let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-    
-    // Add a video marker on the map using Google Maps Marker
+    // Function to add a video marker
     function addVideoMarker(video) {
-      let marker = new google.maps.Marker({
-        position: { lat: video.lat, lng: video.lng },
-        map: map
-      });
-      let embedHTML = "";
-      if (video.type === "youtube") {
-        let videoId = "";
+      var marker = L.marker([video.lat, video.lng]).addTo(map);
+      var embedHTML = '';
+      if (video.type === 'youtube') {
+        var videoId = '';
         if (video.videoURL.includes("youtu.be")) {
           videoId = video.videoURL.split("youtu.be/")[1].split("?")[0];
         } else {
-          let urlObj = new URL(video.videoURL);
+          var urlObj = new URL(video.videoURL);
           videoId = urlObj.searchParams.get("v");
         }
         embedHTML = '<iframe width="300" height="169" src="https://www.youtube.com/embed/' + videoId + '" frameborder="0" allowfullscreen></iframe>';
       } else {
         embedHTML = '<video width="300" controls><source src="' + video.videoURL + '" type="video/mp4">Your browser does not support the video tag.</video>';
       }
-      let contentString = '<div><strong>Tag:</strong> ' + video.tag +
-                          '<br><em>Expires on:</em> ' + new Date(video.expiration).toLocaleDateString() +
-                          '<br>' + embedHTML + '</div>';
-      marker.addListener("click", function() {
-        infoWindow.setContent(contentString);
-        infoWindow.open(map, marker);
-      });
+      marker.bindPopup('<strong>Tag:</strong> ' + video.tag +
+                         '<br><em>Expires on:</em> ' + new Date(video.expiration).toLocaleDateString() +
+                         '<br>' + embedHTML);
       video.marker = marker;
     }
     
-    // Handle video submission form
+    // Handle submission form
     document.getElementById('videoForm').addEventListener('submit', function(event) {
       event.preventDefault();
-      let vtype = document.querySelector('input[name="vtype"]:checked').value;
-      let gmapsUrl = document.getElementById('gmapsUrl').value;
-      let tag = document.getElementById('tag').value.toLowerCase();
-      let retentionDays = parseInt(document.getElementById('retention').value);
-      let coords = parseGMapsURL(gmapsUrl);
+      var vtype = document.querySelector('input[name="vtype"]:checked').value;
+      var gmapsUrl = document.getElementById('gmapsUrl').value;
+      var tag = document.getElementById('tag').value.toLowerCase();
+      var retentionDays = parseInt(document.getElementById('retention').value);
+      var coords = parseGMapsURL(gmapsUrl);
       if (!coords) {
-        alert("Invalid Google Maps URL format.");
+        alert("Could not extract coordinates from the provided Google Maps URL. Please check the format.");
         return;
       }
-      let expiration = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
-      if (vtype === "mp4") {
-        let fileInput = document.getElementById('fileInput');
+      
+      var expiration = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
+      
+      if (vtype === 'mp4') {
+        var fileInput = document.getElementById('fileInput');
         if (fileInput.files.length === 0) {
           alert("Please select an MP4 file.");
           return;
         }
-        let file = fileInput.files[0];
+        var file = fileInput.files[0];
         if (file.size > 500 * 1024 * 1024) {
           alert("File exceeds 500MB limit.");
           return;
         }
-        let blobURL = URL.createObjectURL(file);
-        let submission = { type: "mp4", videoURL: blobURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
+        var blobURL = URL.createObjectURL(file);
+        var submission = { type: 'mp4', videoURL: blobURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
         videos.push(submission);
         addVideoMarker(submission);
         saveVideos();
         this.reset();
         refreshLists();
       } else {
-        let videoURL = document.getElementById('videoURL').value;
+        var videoURL = document.getElementById('videoURL').value;
         if (!videoURL) {
           alert("Please enter a YouTube link.");
           return;
         }
-        let submission = { type: "youtube", videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
+        var submission = { type: 'youtube', videoURL: videoURL, lat: coords.lat, lng: coords.lng, tag: tag, expiration: expiration, timestamp: Date.now() };
         videos.push(submission);
         addVideoMarker(submission);
         saveVideos();
@@ -293,11 +354,27 @@
       }
     });
     
-    // Refresh the video list in the sidebar based on map center and current tab
+    // Center map on user location
+    function centerOnUser() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          map.setView([lat, lng], 13);
+          refreshLists();
+        }, function(error) {
+          alert("Error retrieving location: " + error.message);
+        });
+      } else {
+        alert("Geolocation not supported by your browser.");
+      }
+    }
+    
+    // Refresh lists of videos based on map center and current time
     function refreshLists() {
-      let now = Date.now();
-      let activeVideos = [];
-      let historyVideos = [];
+      var now = Date.now();
+      var activeVideos = [];
+      var historyVideos = [];
       videos.forEach(function(video) {
         if (now < video.expiration) {
           activeVideos.push(video);
@@ -305,7 +382,8 @@
           historyVideos.push(video);
         }
       });
-      if (currentTab === "active") {
+      saveVideos();
+      if (currentTab === 'active') {
         displayActiveVideos(activeVideos);
       } else {
         displayHistoryVideos(historyVideos);
@@ -313,15 +391,15 @@
     }
     
     function displayActiveVideos(activeVideos) {
-      let center = map.getCenter();
-      let listDiv = document.getElementById('videoList');
-      listDiv.innerHTML = "";
-      let searchTerm = document.getElementById('searchBox').value.toLowerCase();
+      var center = map.getCenter();
+      var listDiv = document.getElementById('videoList');
+      listDiv.innerHTML = '';
+      var searchTerm = document.getElementById('searchBox').value.toLowerCase();
       activeVideos.forEach(function(video) {
-        let d = distance(center.lat, center.lng, video.lat, video.lng);
+        var d = distance(center.lat, center.lng, video.lat, video.lng);
         if (d <= 10 && video.tag.includes(searchTerm)) {
-          let item = document.createElement("div");
-          item.className = "video-item";
+          var item = document.createElement('div');
+          item.className = 'video-item';
           item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
                            '<br><em>Expires:</em> ' + new Date(video.expiration).toLocaleDateString() +
                            '<br><a href="#" onclick="zoomToVideo(' + videos.indexOf(video) + '); return false;">View on Map</a>';
@@ -331,21 +409,21 @@
     }
     
     function displayHistoryVideos(historyVideos) {
-      let listDiv = document.getElementById("videoList");
-      listDiv.innerHTML = "";
-      let groups = {};
+      var listDiv = document.getElementById('videoList');
+      listDiv.innerHTML = '';
+      var groups = {};
       historyVideos.forEach(function(video) {
-        let year = new Date(video.expiration).getFullYear();
+        var year = new Date(video.expiration).getFullYear();
         if (!groups[year]) groups[year] = [];
         groups[year].push(video);
       });
-      for (let year in groups) {
-        let header = document.createElement("h4");
+      for (var year in groups) {
+        var header = document.createElement('h4');
         header.textContent = "History - " + year;
         listDiv.appendChild(header);
         groups[year].forEach(function(video) {
-          let item = document.createElement("div");
-          item.className = "video-item";
+          var item = document.createElement('div');
+          item.className = 'video-item';
           item.innerHTML = '<strong>Tag:</strong> ' + video.tag +
                            '<br><em>Expired:</em> ' + new Date(video.expiration).toLocaleDateString();
           listDiv.appendChild(item);
@@ -354,28 +432,32 @@
     }
     
     function zoomToVideo(index) {
-      let video = videos[index];
-      let pos = { lat: video.lat, lng: video.lng };
-      map.setCenter(pos);
-      map.setZoom(15);
-      if(video.marker) {
-        google.maps.event.trigger(video.marker, 'click');
-      }
+      var video = videos[index];
+      map.setView([video.lat, video.lng], 15);
+      if(video.marker) { video.marker.openPopup(); }
     }
     
-    // Tab control functions
+    // Tab switching functionality
     function setTab(tab) {
       currentTab = tab;
-      document.getElementById("activeTab").classList.toggle("active", tab === "active");
-      document.getElementById("historyTab").classList.toggle("active", tab === "history");
+      document.getElementById('activeTab').classList.toggle('active', tab === 'active');
+      document.getElementById('historyTab').classList.toggle('active', tab === 'history');
       refreshLists();
     }
     
-    // Event listeners for refresh and search
-    document.getElementById("refreshBtn").addEventListener("click", refreshLists);
-    document.getElementById("searchBox").addEventListener("input", refreshLists);
+    document.getElementById('refreshBtn').addEventListener('click', refreshLists);
+    document.getElementById('searchBox').addEventListener('input', refreshLists);
     
-    // On window load, the Google Maps API calls initMap (via callback)
+    window.onload = function() {
+      centerOnUser();
+      refreshLists();
+      // Re-add markers for active videos
+      videos.forEach(function(video) {
+        if (Date.now() < video.expiration) {
+          addVideoMarker(video);
+        }
+      });
+    };
   </script>
 </body>
 </html>
