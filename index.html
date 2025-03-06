@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+          <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -41,6 +41,21 @@
     h2 {
       text-align: center;
       margin-bottom: 1rem;
+    }
+    .controls {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .controls label {
+      font-weight: bold;
+    }
+    .controls input[type="range"] {
+      width: 80%;
+      margin: 0.5rem 0;
+    }
+    .controls span {
+      font-size: 1rem;
+      color: #2c3e50;
     }
     .video-feed {
       display: flex;
@@ -92,6 +107,11 @@
   
   <div class="container">
     <h2>Local Feed</h2>
+    <!-- Range slider control -->
+    <div class="controls">
+      <label for="rangeSlider">Filter Range: <span id="rangeValue">10</span> km</label><br>
+      <input type="range" id="rangeSlider" min="0.1" max="100" step="0.1" value="10">
+    </div>
     <div id="feed" class="video-feed">
       <div class="loader" id="loader">Loading videos near you...</div>
     </div>
@@ -114,26 +134,29 @@
       return R * c;
     }
     
-    // Retrieve videos from localStorage
+    // Retrieve video submissions from localStorage
     let videos = [];
     if (localStorage.getItem('videoSubmissions')) {
       videos = JSON.parse(localStorage.getItem('videoSubmissions'));
     }
     
-    // Function to render the feed given user's location (lat, lng)
+    // Render the feed based on user's location and slider range.
     function renderFeed(userLat, userLng) {
       const feedDiv = document.getElementById('feed');
-      feedDiv.innerHTML = ''; // clear loader or previous feed
+      feedDiv.innerHTML = ""; // Clear current feed
       
-      // Filter videos that are active (not expired) and within 10km.
+      // Get slider range value (in km)
+      const filterRange = parseFloat(document.getElementById('rangeSlider').value);
+      
+      // Filter active videos (not expired) within the chosen range.
       const now = Date.now();
-      let nearbyVideos = videos.filter(video => now < video.expiration && distance(userLat, userLng, video.lat, video.lng) <= 10);
+      let nearbyVideos = videos.filter(video => now < video.expiration && distance(userLat, userLng, video.lat, video.lng) <= filterRange);
       
       // Sort by timestamp descending (most recent first)
       nearbyVideos.sort((a, b) => b.timestamp - a.timestamp);
       
       if (nearbyVideos.length === 0) {
-        feedDiv.innerHTML = '<p style="text-align:center; color:#777;">No videos found near you. Check back later!</p>';
+        feedDiv.innerHTML = '<p style="text-align:center; color:#777;">No videos found within ' + filterRange + ' km. Try adjusting the range or check back later!</p>';
         return;
       }
       
@@ -141,9 +164,9 @@
         const item = document.createElement('div');
         item.className = 'video-item';
         const username = video.username ? video.username : "Guest";
-        let videoEmbed = '';
-        if (video.type === 'youtube') {
-          let videoId = '';
+        let videoEmbed = "";
+        if (video.type === "youtube") {
+          let videoId = "";
           if (video.videoURL.includes("youtu.be")) {
             videoId = video.videoURL.split("youtu.be/")[1].split("?")[0];
           } else {
@@ -165,7 +188,7 @@
       });
     }
     
-    // Attempt to get user's location on page load
+    // Get user's current location and render feed.
     function loadUserFeed() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
@@ -179,6 +202,13 @@
         document.getElementById('feed').innerHTML = `<p style="text-align:center; color:#777;">Geolocation is not supported by your browser.</p>`;
       }
     }
+    
+    // Update slider value display and re-render feed on change.
+    const slider = document.getElementById('rangeSlider');
+    slider.addEventListener('input', function() {
+      document.getElementById('rangeValue').textContent = slider.value;
+      loadUserFeed();
+    });
     
     window.onload = loadUserFeed;
   </script>
