@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Pulse – Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f0f2f5; color: #333; display: flex; flex-direction: column; }
+    header, footer { background: #2c3e50; color: #fff; padding: 1rem; text-align: center; }
+    nav { background: #34495e; padding: 0.5rem; text-align: center; }
+    nav a { color: #fff; text-decoration: none; margin: 0 1rem; font-weight: bold; }
+    #container { flex: 1; display: flex; flex-direction: row; }
+    #map { flex: 2; height: 80vh; }
+    #sidebar { flex: 1; padding: 1rem; background: #fff; overflow-y: auto; border-left: 1px solid #ddd; }
+    form { margin-bottom: 1rem; }
+    form label { display: block; margin-top: 0.5rem; }
+    form input, form button { width: 100%; padding: 0.5rem; margin-top: 0.2rem; margin-bottom: 0.5rem; box-sizing: border-box; }
+    #searchBox { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+    .video-item { margin-bottom: 1rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+    .video-item iframe, .video-item video { width: 100%; max-width: 300px; }
+    .location-btn { background: #2c3e50; color: #fff; padding: 0.5rem; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
+    .location-btn:hover { background: #34495e; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Global Pulse – Map</h1>
+    <p>Discover mood videos near you</p>
+  </header>
+  
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="map.html">Map</a>
+  </nav>
+  
+  <div id="container">
+    <div id="map"></div>
+    <div id="sidebar">
+      <h2>Submit Your Mood Video</h2>
+      <form id="videoForm">
+        <label for="gmapsUrl">Google Maps URL:</label>
+        <input type="url" id="gmapsUrl" placeholder="https://www.google.com/maps/place/..." required>
+        <label for="videoURL">Video URL (MP4 or YouTube):</label>
+        <input type="url" id="videoURL" placeholder="https://example.com/video.mp4" required>
+        <label for="tag">Tag / Keywords (e.g., Times Square):</label>
+        <input type="text" id="tag" placeholder="Enter keywords" required>
+        <button type="submit">Submit Video</button>
+      </form>
+      <button class="location-btn" onclick="centerOnUser()">Center on My Location</button>
+      <hr>
+      <input type="text" id="searchBox" placeholder="Search by tag...">
+      <h3>Videos near center (within 10 km):</h3>
+      <div id="videoList"></div>
+      <button id="refreshBtn">Refresh List</button>
+    </div>
+  </div>
+  
+  <footer>
+    <p>&copy; 2025 Global Pulse. All rights reserved.</p>
+  </footer>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    // Initialize map; default center at [20,0] with zoom level 2.
+    var map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Global array to store video submissions.
+    var videos = [];
+
+    // Parse Google Maps URL to extract coordinates in format "/@lat,lng,"
+    function parseGMapsURL(url) {
+      var regex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+      var match = url.match(regex);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      return null;
+    }
+
+    // Haversine formula to calculate distance (km) between two lat/lng pairs.
+    function distance(lat1, lng1, lat2, lng2) {
+      var R = 6371;
+      var dLat = (lat2 - lat1) * Math.PI / 180;
+      var dLng = (lng2 - lng1) * Math.PI / 180;
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Add a video marker on the map.
+    function addVideoMarker(video) {
+      var marker = L.marker([video.lat, video.lng]).addTo(map);
+      var embedHTML = '';
+      if (video.videoURL.includes("youtube.com") || video.videoURL.includes("youtu.be")) {
+        var videoId = '';
+        if (video.videoURL.includes("youtu.be")) {
+          videoId = video.videoURL.split("youtu.be/")[1].split("?")[0];
+        } else {
+          var urlObj = new URL(video.videoURL);
+          videoId = urlObj.searchParams.get("v");
+        }
+        embedHTML = '<iframe width="300" height="169" src="https://www.youtube.com/embed/' + videoId + '" frameborder="0" allowfullscreen></iframe>';
+      } else {
+        embedHTML = '<video width="300" controls><source src="' + video.videoURL + '" type="video/mp4">Your browser does not support the video tag.</video>';
+      }
+      marker.bindPopup('<strong>Tag:</strong> ' + video.tag + '<br>' + embedHTML);
+      video.marker = marker;
+    }
+
+    // Handle video submission form.
+    document.getElementById('videoForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      var gmapsUrl = document.getElementById('gmapsUrl').value;
+      var videoURL = document.getElementById('videoURL').value;
+      var tag = document.getElementById('tag').value;
+      var coords = parseGMapsURL(gmapsUrl);
+      if (!coords) {
+        alert("Could not extract coordinates from the Google Maps URL. Please check the format.");
+        return;
+      }
+      var videoData = { lat: coords.lat, lng: coords.lng, videoURL: videoURL, tag: tag.toLowerCase() };
+      videos.push(videoData);
+      addVideoMarker(videoData);
+      this.reset();
+      refreshVideoList();
+    });
+
+    // Center map on user's location after permission.
+    function centerOnUser() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          map.setView([lat, lng], 13);
+          refreshVideoList();
+        }, function(error) {
+          alert("Error retrieving location: " + error.message);
+        });
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
+    }
+
+    // Refresh the sidebar video list based on current map center and search term.
+    function refreshVideoList() {
+      var center = map.getCenter();
+      var listDiv = document.getElementById('videoList');
+      listDiv.innerHTML = '';
+      var searchTerm = document.getElementById('searchBox').value.toLowerCase();
+      videos.forEach(function(video, index) {
+        var d = distance(center.lat, center.lng, video.lat, video.lng);
+        if (d <= 10 && video.tag.includes(searchTerm)) {
+          var item = document.createElement('div');
+          item.className = 'video-item';
+          item.innerHTML = '<strong>Tag:</strong> ' + video.tag + '<br><a href="#" onclick="zoomToVideo(' + index + '); return false;">View on map</a>';
+          listDiv.appendChild(item);
+        }
+      });
+    }
+
+    // Zoom to a specific video marker when selected.
+    function zoomToVideo(index) {
+      var video = videos[index];
+      map.setView([video.lat, video.lng], 15);
+      video.marker.openPopup();
+    }
+
+    // Refresh video list when map movement ends.
+    map.on('moveend', refreshVideoList);
+    // Update list when search box input changes.
+    document.getElementById('searchBox').addEventListener('input', refreshVideoList);
+    document.getElementById('refreshBtn').addEventListener('click', refreshVideoList);
+
+    // Attempt to get user's location on load.
+    window.onload = centerOnUser;
+  </script>
+</body>
+</html>
