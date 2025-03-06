@@ -2,92 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Global Pulse – Video Mood Map</title>
+  <title>Global Pulse – Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    header, footer {
-      background: #2c3e50;
-      color: #fff;
-      padding: 1rem;
-      text-align: center;
-    }
-    #container {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-    }
-    #map {
-      flex: 2;
-      height: 100%;
-    }
-    #sidebar {
-      flex: 1;
-      padding: 1rem;
-      overflow-y: auto;
-      background: #f7f7f7;
-      border-left: 1px solid #ddd;
-    }
-    #videoForm {
-      margin-bottom: 1rem;
-    }
-    #videoForm label {
-      display: block;
-      margin-top: 0.5rem;
-    }
-    #videoForm input, #videoForm button {
-      width: 100%;
-      padding: 0.5rem;
-      margin-top: 0.2rem;
-      margin-bottom: 0.5rem;
-      box-sizing: border-box;
-    }
-    #searchBox {
-      width: 100%;
-      padding: 0.5rem;
-      margin-bottom: 1rem;
-      box-sizing: border-box;
-    }
-    .video-item {
-      margin-bottom: 1rem;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 0.5rem;
-    }
-    .video-item iframe, .video-item video {
-      width: 100%;
-      max-width: 300px;
-    }
+    body { margin: 0; font-family: sans-serif; background: #f0f2f5; color: #333; }
+    header, footer { background: #2c3e50; color: #fff; padding: 1rem; text-align: center; }
+    nav { background: #34495e; padding: 0.5rem; text-align: center; }
+    nav a { color: #fff; text-decoration: none; margin: 0 1rem; font-weight: bold; }
+    .container { padding: 2rem; text-align: center; }
+    .quote { font-style: italic; margin: 1rem 0; font-size: 1.2rem; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; border: none; border-radius: 4px; background: #2c3e50; color: #fff; cursor: pointer; }
+    button:hover { background: #34495e; }
   </style>
 </head>
 <body>
   <header>
     <h1>Global Pulse</h1>
-    <p>Worldwide Video Mood Map</p>
+    <p>Your Worldwide Video Mood Map</p>
   </header>
-
-  <div id="container">
-    <!-- Map container -->
-    <div id="map"></div>
+  
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="map.html">Map</a>
+  </nav>
+  
+  <div class="container">
+    <h2>Welcome!</h2>
+    <p>Global Pulse collects short mood videos from people around the world, mapping the emotional heartbeat of our cities. Share your moment and explore the mood of your neighborhood!</p>
     
-    <!-- Sidebar for form and video list -->
-    <div id="sidebar">
-      <h2>Submit Your Mood Video</h2>
-      <form id="videoForm">
-        <label for="gmapsUrl">Google Maps URL (e.g. .../@lat,lng,...):</label>
-        <input type="url" id="gmapsUrl" placeholder="https://www.google.com/maps/place/..." required>
-        
-        <label for="videoURL">Video URL (MP4 or YouTube link):</label>
-        <input type="url" id="videoURL" placeholder="https://example.com/video.mp4" required>
-        
-        <label for="tag">Tag / Keywords (e.g., Times Square, New York):</label>
-        <input type="text" id="tag" placeholder="Enter keywords" required>
-        
-        <button type="submit">Submit
+    <div class="quote" id="quoteDisplay">"Ever
